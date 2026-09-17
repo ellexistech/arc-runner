@@ -250,7 +250,7 @@ Bump `[VERSION](VERSION)` by hand, then build/push with
 Pin the scale set to the **version tag** (not only `:latest`) in values:
 
 ```yaml
-image: ghcr.io/ellexistech/arc-runner:0.2.0
+image: ghcr.io/ellexistech/arc-runner:0.3.0
 ```
 
 ```bash
@@ -278,7 +278,7 @@ image tag in the Dockerfile `FROM` line instead of `latest`.
 1. Org/repo → **Settings → Actions → Runners** lists the scale set name.
 2. A workflow job uses `runs-on: ellexis-runners` (or whatever
   `runnerScaleSetName` you set).
-3. On a job: Node/pnpm/`gh`/`jq` are available without a long tool download; if you
+3. On a job: Node/pnpm/`gh`/`jq`/`scc` are available without a long tool download; if you
   mounted `/cache/ci`, package-manager store paths should land there when your
    workflows configure them (e.g. pnpm 11: `PNPM_CONFIG_STORE_DIR`).
 
