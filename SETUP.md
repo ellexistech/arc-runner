@@ -11,14 +11,14 @@ environment.
 | Charts | `gha-runner-scale-set-controller` / `gha-runner-scale-set` **0.14.2** |
 | Namespaces | `arc-systems` (controller), `arc-runners` (scale set) |
 | Helm releases | `arc`, `ellexis-runners` |
-| Image | `ghcr.io/ellexistech/arc-runner:latest` |
+| Image | `ghcr.io/ellexistech/arc-runner:<VERSION>` (see [`VERSION`](VERSION); also tagged `:latest`) |
 | Shared cache | host `/cache/ci` → pod `/cache/ci` |
 
 ```text
 Workstation
    │  docker build / push
    ▼
-ghcr.io/ellexistech/arc-runner:latest
+ghcr.io/ellexistech/arc-runner:<VERSION>
    │  public pull
    ▼
 k3s node ── arc-systems (controller)
@@ -219,8 +219,15 @@ Keep the machine plugged in.
 
 ## 11. Custom runner image
 
-Build and push — see [README.md](README.md). Public GHCR package avoids
-imagePullSecrets.
+Bump [`VERSION`](VERSION) by hand, then build/push with
+[`build-push.sh`](build-push.sh) (tags `:<VERSION>` and `:latest`) — see
+[README.md](README.md). Public GHCR package avoids imagePullSecrets.
+
+Pin the scale set to the **version tag** (not only `:latest`) in values:
+
+```yaml
+image: ghcr.io/ellexistech/arc-runner:0.1.0
+```
 
 ```bash
 helm upgrade ellexis-runners \
@@ -236,7 +243,7 @@ kubectl delete pods -n arc-runners \
 
 If `docker build` gets `403` pulling `ghcr.io/actions/actions-runner`, run
 `docker logout ghcr.io` and retry (stale GHCR auth). Prefer pinning a base
-image tag in the Dockerfile instead of `latest`.
+image tag in the Dockerfile `FROM` line instead of `latest`.
 
 ---
 
@@ -256,7 +263,7 @@ image tag in the Dockerfile instead of `latest`.
 | Task | How |
 | --- | --- |
 | Change max runners | [`set-runner-max.sh`](set-runner-max.sh) — from a laptop SSHs to the builder (`MAX_RUNNERS_HOST`), edits values, helm upgrade. |
-| Bump image | Rebuild/push, then helm upgrade / delete runner pods. |
+| Bump image | Edit `VERSION`, `bash ./build-push.sh`, pin new tag in values, helm upgrade / delete runner pods. |
 | Chart bump | Change `--version` deliberately; read ARC release notes. |
 
 ### Troubleshooting

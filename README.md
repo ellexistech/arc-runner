@@ -1,34 +1,56 @@
 # Ellexis ARC Runner
 
-Image: `ghcr.io/ellexistech/arc-runner:latest`
+Image: `ghcr.io/ellexistech/arc-runner` ([GHCR package](https://github.com/orgs/ellexistech/packages?repo_name=arc-runner))
 
 Custom [Actions Runner Controller](https://docs.github.com/en/actions/concepts/runners/actions-runner-controller)
-image with **Node 24 LTS**, **pnpm** (Corepack), `gh`, `jq`, and `python3` so
+image with **Node 24 LTS**, **pnpm** (global npm install), `gh`, `jq`, and `python3` so
 workflow setup steps can skip downloading those tools on every ephemeral pod.
 
 **Bootstrap a single-node k3s builder + ARC scale set:** [SETUP.md](SETUP.md)
 
-## Build and push
+## Versioning
 
-```powershell
-docker build -t ghcr.io/ellexistech/arc-runner:latest .
-$env:GITHUB_TOKEN | docker login ghcr.io -u YOUR_GITHUB_USERNAME --password-stdin
-docker push ghcr.io/ellexistech/arc-runner:latest
+Manual semver in [`VERSION`](VERSION). Each release pushes:
+
+| Tag | Meaning |
+| --- | --- |
+| `ghcr.io/ellexistech/arc-runner:0.1.0` | Immutable release (pin this in Helm values) |
+| `ghcr.io/ellexistech/arc-runner:latest` | Same build, moving pointer |
+
+### Release a new image
+
+1. Edit `VERSION` (e.g. `0.1.0` → `0.2.0`).
+2. Build and push both tags:
+
+```bash
+# Git Bash / Linux / macOS — login once:
+#   echo "$GITHUB_TOKEN" | docker login ghcr.io -u USERNAME --password-stdin
+bash ./build-push.sh
+bash ./build-push.sh --no-push   # build only
 ```
 
-Use a PAT or `gh auth token` with `write:packages`. Prefer making the GHCR
-package **public** so runner pods can pull without an imagePullSecret.
+```powershell
+# Windows PowerShell — login once:
+#   $env:GITHUB_TOKEN | docker login ghcr.io -u USERNAME --password-stdin
+.\build-push.ps1
+.\build-push.ps1 -NoPush   # build only
+```
 
-After push, upgrade the scale set (or delete runner pods) so new jobs pick up
-the image — see [SETUP.md](SETUP.md).
+3. Commit `VERSION` (and Dockerfile changes) on `main`. Optionally tag the git
+   commit: `git tag v0.2.0 && git push origin v0.2.0`.
+4. Point the scale set at the new tag in `~/arc-runners-values.yaml` and
+   `helm upgrade` (see [SETUP.md](SETUP.md)).
+
+Use a PAT or `gh auth token` with `write:packages`. Keep the GHCR package
+**public** so runner pods can pull without an imagePullSecret.
 
 ## Smoke test
 
-```powershell
-docker run --rm ghcr.io/ellexistech/arc-runner:latest node -v
-docker run --rm ghcr.io/ellexistech/arc-runner:latest pnpm -v
-docker run --rm ghcr.io/ellexistech/arc-runner:latest gh --version
-docker run --rm ghcr.io/ellexistech/arc-runner:latest python3 --version
+```bash
+VER=$(tr -d '[:space:]' < VERSION)
+docker run --rm "ghcr.io/ellexistech/arc-runner:${VER}" node -v
+docker run --rm "ghcr.io/ellexistech/arc-runner:${VER}" pnpm -v
+docker run --rm "ghcr.io/ellexistech/arc-runner:${VER}" gh --version
 ```
 
 ## Day-2 scale
