@@ -6,13 +6,15 @@ runner image**. Aimed at a small office/VPS builder; adapt hostnames and paths.
 Replace placeholders (`YOUR_ORG`, SSH host, Wi‑Fi iface, cache path) for your
 environment.
 
-| Piece | Example in this repo |
-| --- | --- |
-| Charts | `gha-runner-scale-set-controller` / `gha-runner-scale-set` **0.14.2** |
-| Namespaces | `arc-systems` (controller), `arc-runners` (scale set) |
-| Helm releases | `arc`, `ellexis-runners` |
-| Image | `ghcr.io/ellexistech/arc-runner:<VERSION>` (see [`VERSION`](VERSION); also tagged `:latest`) |
-| Shared cache | host `/cache/ci` → pod `/cache/ci` |
+
+| Piece         | Example in this repo                                                                         |
+| ------------- | -------------------------------------------------------------------------------------------- |
+| Charts        | `gha-runner-scale-set-controller` / `gha-runner-scale-set` **0.14.2**                        |
+| Namespaces    | `arc-systems` (controller), `arc-runners` (scale set)                                        |
+| Helm releases | `arc`, `ellexis-runners`                                                                     |
+| Image         | `ghcr.io/ellexistech/arc-runner:<VERSION>` (see `[VERSION](VERSION)`; also tagged `:latest`) |
+| Shared cache  | host `/cache/ci` → pod `/cache/ci`                                                           |
+
 
 ```text
 Workstation
@@ -29,6 +31,8 @@ k3s node ── arc-systems (controller)
 
 ---
 
+
+
 ## 1. Host prep
 
 ```bash
@@ -44,6 +48,8 @@ required** on the builder — k3s ships containerd. Build the runner image on a
 machine that has Docker (e.g. a laptop), then push to GHCR.
 
 ---
+
+
 
 ## 2. Install k3s
 
@@ -65,6 +71,8 @@ kubectl get nodes
 
 ---
 
+
+
 ## 3. Install Helm 3
 
 ```bash
@@ -74,6 +82,8 @@ helm version
 
 ---
 
+
+
 ## 4. Namespaces
 
 ```bash
@@ -82,6 +92,8 @@ kubectl create namespace arc-runners
 ```
 
 ---
+
+
 
 ## 5. ARC controller (pin 0.14.2)
 
@@ -96,6 +108,8 @@ kubectl get pods -n arc-systems
 
 ---
 
+
+
 ## 6. GitHub App
 
 Create an **organization-owned** GitHub App (or user-owned if you only need
@@ -103,7 +117,7 @@ repo scope).
 
 - Homepage URL: `https://github.com/actions/actions-runner-controller`
 - Repository permissions: **Metadata: Read-only**
-  (**Administration: Read and write** only if registering at **repository** scope)
+(**Administration: Read and write** only if registering at **repository** scope)
 - Organization permissions (org-level runners): **Self-hosted runners: Read and write**
 
 Install the app on the target org (or repo). Record App ID, Installation ID,
@@ -120,6 +134,8 @@ sudo chown root:root /etc/github-arc/github-app-private-key.pem
 ```
 
 ---
+
+
 
 ## 7. Kubernetes secret
 
@@ -141,6 +157,8 @@ Key names must be exactly: `github_app_id`, `github_app_installation_id`,
 
 ---
 
+
+
 ## 8. Shared CI cache directory
 
 Optional but recommended for monorepo package managers (pnpm/npm/yarn stores,
@@ -152,9 +170,11 @@ sudo chmod -R 777 /cache/ci
 ```
 
 Tighten ownership later if you pin a known runner UID. Path must match
-[`values.example.yaml`](values.example.yaml) (`hostPath` + `mountPath`).
+`[values.example.yaml](values.example.yaml)` (`hostPath` + `mountPath`).
 
 ---
+
+
 
 ## 9. Runner scale set
 
@@ -197,6 +217,8 @@ The Helm release / `runnerScaleSetName` becomes the workflow `runs-on` label
 
 ---
 
+
+
 ## 10. Headless laptop (optional)
 
 If the builder is a laptop that must stay online with the lid closed:
@@ -217,16 +239,18 @@ Keep the machine plugged in.
 
 ---
 
+
+
 ## 11. Custom runner image
 
-Bump [`VERSION`](VERSION) by hand, then build/push with
-[`build-push.sh`](build-push.sh) (tags `:<VERSION>` and `:latest`) — see
+Bump `[VERSION](VERSION)` by hand, then build/push with
+`[build-push.sh](build-push.sh)` (tags `:<VERSION>` and `:latest`) — see
 [README.md](README.md). Public GHCR package avoids imagePullSecrets.
 
 Pin the scale set to the **version tag** (not only `:latest`) in values:
 
 ```yaml
-image: ghcr.io/ellexistech/arc-runner:0.1.0
+image: ghcr.io/ellexistech/arc-runner:0.2.0
 ```
 
 ```bash
@@ -247,35 +271,45 @@ image tag in the Dockerfile `FROM` line instead of `latest`.
 
 ---
 
+
+
 ## 12. Verify
 
 1. Org/repo → **Settings → Actions → Runners** lists the scale set name.
 2. A workflow job uses `runs-on: ellexis-runners` (or whatever
-   `runnerScaleSetName` you set).
-3. On a job: Node/pnpm/`gh` are available without a long tool download; if you
-   mounted `/cache/ci`, package-manager store paths should land there when your
+  `runnerScaleSetName` you set).
+3. On a job: Node/pnpm/`gh`/`jq` are available without a long tool download; if you
+  mounted `/cache/ci`, package-manager store paths should land there when your
    workflows configure them (e.g. pnpm 11: `PNPM_CONFIG_STORE_DIR`).
 
 ---
 
+
+
 ## 13. Day-2 ops
 
-| Task | How |
-| --- | --- |
-| Change max runners | [`set-runner-max.sh`](set-runner-max.sh) — from a laptop SSHs to the builder (`MAX_RUNNERS_HOST`), edits values, helm upgrade. |
-| Bump image | Edit `VERSION`, `bash ./build-push.sh`, pin new tag in values, helm upgrade / delete runner pods. |
-| Chart bump | Change `--version` deliberately; read ARC release notes. |
+
+| Task               | How                                                                                                                            |
+| ------------------ | ------------------------------------------------------------------------------------------------------------------------------ |
+| Change max runners | `[set-runner-max.sh](set-runner-max.sh)` — from a laptop SSHs to the builder (`MAX_RUNNERS_HOST`), edits values, helm upgrade. |
+| Bump image         | Edit `VERSION`, `bash ./build-push.sh`, pin new tag in values, helm upgrade / delete runner pods.                              |
+| Chart bump         | Change `--version` deliberately; read ARC release notes.                                                                       |
+
+
+
 
 ### Troubleshooting
 
 - **No idle runner pods** — expected with `minRunners: 0`; check the listener.
 - **Jobs stuck queued** — listener logs; App install + permissions;
-  `githubConfigUrl` scope.
-- **pnpm store not on the mount** — pnpm 11 ignores `npm_config_*`; use
-  `PNPM_CONFIG_STORE_DIR` (or equivalent) in the workflow.
+`githubConfigUrl` scope.
+- **pnpm store not on the mount** — pnpm 11 ignores `npm_config_`*; use
+`PNPM_CONFIG_STORE_DIR` (or equivalent) in the workflow.
 - **Lid closes → offline** — re-check logind drop-in and masked sleep targets.
 
 ---
+
+
 
 ## 14. Tips for any consuming repository
 
@@ -290,20 +324,26 @@ jobs:
       # Prefer tools already in the image; set package-manager store to /cache/ci/...
 ```
 
+
+
 ### Shared cache
 
-| Path (example) | Role |
-| --- | --- |
-| `/cache/ci/pnpm-store` | Shared pnpm store across pods |
-| `/cache/ci/turbo` | Local Turbo (or similar) filesystem cache |
+
+| Path (example)         | Role                                      |
+| ---------------------- | ----------------------------------------- |
+| `/cache/ci/pnpm-store` | Shared pnpm store across pods             |
+| `/cache/ci/turbo`      | Local Turbo (or similar) filesystem cache |
+
 
 - Mount via scale-set `template.spec` (`hostPath` or PVC) — see
-  [`values.example.yaml`](values.example.yaml).
+`[values.example.yaml](values.example.yaml)`.
 - On multi-node clusters use a **ReadWriteMany** volume so every node sees the
-  same store. Keep Actions `_work` on fast local disk.
+same store. Keep Actions `_work` on fast local disk.
 - Avoid `actions/cache` for huge package stores if post-job uploads stall the
-  runner.
+runner.
 - Do **not** share `node_modules` across pods.
+
+
 
 ### Parallel cold installs
 
@@ -324,9 +364,12 @@ secrets. A local `/cache/ci/...` dir can complement remote hits.
 
 ---
 
+
+
 ## Related
 
 - Image: [README.md](README.md) · [Dockerfile](Dockerfile)
 - Values: [values.example.yaml](values.example.yaml)
 - Host units: [host/](host/)
 - Scale script: [set-runner-max.sh](set-runner-max.sh)
+

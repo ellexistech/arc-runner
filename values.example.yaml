@@ -14,7 +14,7 @@ template:
   spec:
     containers:
       - name: runner
-        image: ghcr.io/ellexistech/arc-runner:0.1.0
+        image: ghcr.io/ellexistech/arc-runner:0.2.0
         command:
           - /home/runner/run.sh
         volumeMounts:

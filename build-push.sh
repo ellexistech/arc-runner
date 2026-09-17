@@ -46,10 +46,11 @@ docker build \
   -t "$TAG_LATEST" \
   .
 
-echo "Smoke: node / pnpm / gh"
+echo "Smoke: node / pnpm / gh / jq"
 docker run --rm "$TAG_VERSION" node -v
 docker run --rm "$TAG_VERSION" pnpm -v
 docker run --rm "$TAG_VERSION" gh --version
+docker run --rm "$TAG_VERSION" jq --version
 
 if [[ "$PUSH" -eq 1 ]]; then
   echo "Pushing ${TAG_VERSION}"

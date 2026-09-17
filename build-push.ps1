@@ -46,12 +46,14 @@ docker build `
   .
 if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
-Write-Host "Smoke: node / pnpm / gh"
+Write-Host "Smoke: node / pnpm / gh / jq"
 docker run --rm $TagVersion node -v
 if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 docker run --rm $TagVersion pnpm -v
 if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 docker run --rm $TagVersion gh --version
+if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+docker run --rm $TagVersion jq --version
 if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
 if (-not $NoPush) {
