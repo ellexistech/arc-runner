@@ -1,0 +1,12 @@
+[Unit]
+Description=Disable WiFi power save for headless CI
+After=network.target
+
+[Service]
+Type=oneshot
+# Adjust the iface name if this host differs (check: iw dev).
+ExecStart=/bin/sh -c "command -v iw >/dev/null && iw dev wlp0s20f3 set power_save off || true"
+RemainAfterExit=yes
+
+[Install]
+WantedBy=multi-user.target

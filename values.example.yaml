@@ -1,0 +1,27 @@
+# Example Helm values for gha-runner-scale-set.
+# Copy to ~/arc-runners-values.yaml on the builder and edit placeholders.
+
+githubConfigUrl: "https://github.com/YOUR_ORG"
+
+githubConfigSecret: "github-app-secret"
+
+minRunners: 0
+maxRunners: 3
+
+runnerScaleSetName: "ellexis-runners"
+
+template:
+  spec:
+    containers:
+      - name: runner
+        image: ghcr.io/ellexistech/arc-runner:latest
+        command:
+          - /home/runner/run.sh
+        volumeMounts:
+          - name: ci-cache
+            mountPath: /cache/ci
+    volumes:
+      - name: ci-cache
+        hostPath:
+          path: /cache/ci
+          type: DirectoryOrCreate
