@@ -1,0 +1,210 @@
+# Periodic sweeper for ARC 0.14 stuck EphemeralRunners (Completed pods that
+# never lose finalizers / stay phase=Running and block maxRunners slots).
+#
+# Apply once on the builder:
+#   kubectl apply -f k8s/cleanup-stuck-ephemeralrunners.yaml
+#
+# Manual run:
+#   kubectl create job --from=cronjob/cleanup-stuck-ephemeralrunners \
+#     -n arc-runners "cleanup-stuck-er-manual-$(date +%s)"
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: cleanup-stuck-ephemeralrunners
+  namespace: arc-runners
+  labels:
+    app.kubernetes.io/name: cleanup-stuck-ephemeralrunners
+    app.kubernetes.io/part-of: ellexis-arc-runner
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: cleanup-stuck-ephemeralrunners
+  namespace: arc-runners
+  labels:
+    app.kubernetes.io/name: cleanup-stuck-ephemeralrunners
+    app.kubernetes.io/part-of: ellexis-arc-runner
+rules:
+  - apiGroups: ["actions.github.com"]
+    resources: ["ephemeralrunners"]
+    verbs: ["get", "list", "patch", "delete"]
+  - apiGroups: [""]
+    resources: ["pods"]
+    verbs: ["get", "list", "delete"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: cleanup-stuck-ephemeralrunners
+  namespace: arc-runners
+  labels:
+    app.kubernetes.io/name: cleanup-stuck-ephemeralrunners
+    app.kubernetes.io/part-of: ellexis-arc-runner
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: cleanup-stuck-ephemeralrunners
+subjects:
+  - kind: ServiceAccount
+    name: cleanup-stuck-ephemeralrunners
+    namespace: arc-runners
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: cleanup-stuck-ephemeralrunners
+  namespace: arc-runners
+  labels:
+    app.kubernetes.io/name: cleanup-stuck-ephemeralrunners
+    app.kubernetes.io/part-of: ellexis-arc-runner
+data:
+  cleanup.sh: |
+    #!/bin/sh
+    # Force-delete EphemeralRunners that block the scale set after jobs finish.
+    # POSIX sh + kubectl only (no jq). Image: alpine/k8s.
+    set -eu
+    NAMESPACE="${NAMESPACE:-arc-runners}"
+    GRACE_SECONDS="${GRACE_SECONDS:-120}"
+    DRY_RUN="${DRY_RUN:-0}"
+    now_epoch=$(date -u +%s)
+    log() { printf '%s %s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$*"; }
+    to_epoch() {
+      # Accept 2026-09-17T09:56:18Z or …18.123456789Z.
+      # alpine/k8s uses BusyBox date: needs -D FMT -d TIME.
+      ts=$(printf '%s' "$1" | sed 's/\.[0-9]*Z$/Z/')
+      if out=$(date -u -D '%Y-%m-%dT%H:%M:%SZ' -d "$ts" +%s 2>/dev/null); then
+        printf '%s\n' "$out"
+        return 0
+      fi
+      if out=$(date -u -d "$ts" +%s 2>/dev/null); then
+        printf '%s\n' "$out"
+        return 0
+      fi
+      printf '0\n'
+      return 1
+    }
+    force_delete_er() {
+      name="$1"
+      reason="$2"
+      log "FORCE-DELETE ephemeralrunner/${name} (${reason})"
+      if [ "$DRY_RUN" = "1" ]; then
+        return 0
+      fi
+      kubectl patch "ephemeralrunner/${name}" -n "$NAMESPACE" --type=json \
+        -p='[{"op":"remove","path":"/metadata/finalizers"}]' >/dev/null 2>&1 || true
+      kubectl delete "ephemeralrunner/${name}" -n "$NAMESPACE" --wait=false >/dev/null 2>&1 || true
+    }
+    log "scanning EphemeralRunners in ${NAMESPACE} (grace=${GRACE_SECONDS}s)"
+    ers=$(kubectl get ephemeralrunner -n "$NAMESPACE" -o name 2>/dev/null || true)
+    if [ -z "$ers" ]; then
+      log "no EphemeralRunners"
+    fi
+    for er in $ers; do
+      name=${er#ephemeralrunner.actions.github.com/}
+      name=${name#ephemeralrunner/}
+      phase=$(kubectl get ephemeralrunner "$name" -n "$NAMESPACE" -o jsonpath='{.status.phase}' 2>/dev/null || true)
+      created=$(kubectl get ephemeralrunner "$name" -n "$NAMESPACE" -o jsonpath='{.metadata.creationTimestamp}')
+      created_epoch=$(to_epoch "$created" || true)
+      if [ "$created_epoch" -eq 0 ]; then
+        log "skip ${name}: cannot parse creationTimestamp=${created}"
+        continue
+      fi
+      age=$((now_epoch - created_epoch))
+      if ! kubectl get "pod/${name}" -n "$NAMESPACE" >/dev/null 2>&1; then
+        if [ "$age" -ge "$GRACE_SECONDS" ]; then
+          force_delete_er "$name" "no pod, age=${age}s, phase=${phase:-none}"
+        else
+          log "skip ${name}: no pod yet (age=${age}s < grace)"
+        fi
+        continue
+      fi
+      pod_phase=$(kubectl get "pod/${name}" -n "$NAMESPACE" -o jsonpath='{.status.phase}')
+      finished=$(kubectl get "pod/${name}" -n "$NAMESPACE" -o jsonpath='{.status.containerStatuses[0].state.terminated.finishedAt}')
+      if [ -z "$finished" ]; then
+        finished=$(kubectl get "pod/${name}" -n "$NAMESPACE" -o jsonpath='{.metadata.deletionTimestamp}')
+      fi
+      if [ -z "$finished" ]; then
+        finished=$(kubectl get "pod/${name}" -n "$NAMESPACE" -o jsonpath='{.metadata.creationTimestamp}')
+      fi
+      finished_epoch=$(to_epoch "$finished" || true)
+      # If finishedAt cannot be parsed, fall back to ER age (never treat as epoch 0).
+      if [ "$finished_epoch" -eq 0 ]; then
+        finished_age=$age
+        log "warn ${name}: bad finishedAt=${finished}; using ER age=${age}s"
+      else
+        finished_age=$((now_epoch - finished_epoch))
+      fi
+      case "$pod_phase" in
+        Succeeded|Failed)
+          if [ "$finished_age" -ge "$GRACE_SECONDS" ]; then
+            force_delete_er "$name" "pod=${pod_phase}, finished_age=${finished_age}s, er_phase=${phase:-none}"
+          else
+            log "skip ${name}: pod ${pod_phase} (finished_age=${finished_age}s < grace)"
+          fi
+          ;;
+        *)
+          log "ok ${name}: pod=${pod_phase} er_phase=${phase:-none}"
+          ;;
+      esac
+    done
+    pods=$(kubectl get pods -n "$NAMESPACE" --field-selector=status.phase=Succeeded -o name 2>/dev/null || true)
+    pods="$pods $(kubectl get pods -n "$NAMESPACE" --field-selector=status.phase=Failed -o name 2>/dev/null || true)"
+    for p in $pods; do
+      [ -z "$p" ] && continue
+      pod=${p#pod/}
+      if ! kubectl get "ephemeralrunner/${pod}" -n "$NAMESPACE" >/dev/null 2>&1; then
+        log "delete orphan pod/${pod} (no ER)"
+        if [ "$DRY_RUN" != "1" ]; then
+          kubectl delete "pod/${pod}" -n "$NAMESPACE" --wait=false >/dev/null 2>&1 || true
+        fi
+      fi
+    done
+    log "done"
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: cleanup-stuck-ephemeralrunners
+  namespace: arc-runners
+  labels:
+    app.kubernetes.io/name: cleanup-stuck-ephemeralrunners
+    app.kubernetes.io/part-of: ellexis-arc-runner
+spec:
+  schedule: "*/2 * * * *"
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 1
+  failedJobsHistoryLimit: 2
+  jobTemplate:
+    spec:
+      backoffLimit: 1
+      ttlSecondsAfterFinished: 300
+      template:
+        metadata:
+          labels:
+            app.kubernetes.io/name: cleanup-stuck-ephemeralrunners
+        spec:
+          serviceAccountName: cleanup-stuck-ephemeralrunners
+          restartPolicy: Never
+          containers:
+            - name: cleanup
+              # kubectl + GNU date + sh
+              image: alpine/k8s:1.31.0
+              imagePullPolicy: IfNotPresent
+              env:
+                - name: NAMESPACE
+                  value: arc-runners
+                - name: GRACE_SECONDS
+                  value: "120"
+              command:
+                - /bin/sh
+                - /scripts/cleanup.sh
+              volumeMounts:
+                - name: scripts
+                  mountPath: /scripts
+                  readOnly: true
+          volumes:
+            - name: scripts
+              configMap:
+                name: cleanup-stuck-ephemeralrunners
+                defaultMode: 0755

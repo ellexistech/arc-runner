@@ -13,7 +13,7 @@ environment.
 | Namespaces    | `arc-systems` (controller), `arc-runners` (scale set)                                        |
 | Helm releases | `arc`, `ellexis-runners`                                                                     |
 | Image         | `ghcr.io/ellexistech/arc-runner:<VERSION>` (see `[VERSION](VERSION)`; also tagged `:latest`) |
-| Shared cache  | host `/cache/ci` → pod `/cache/ci`                                                           |
+| Shared cache  | host `/cache/columbus` → pod `/cache/columbus` (must match Columbus `setup-pnpm-node`) |
 
 
 ```text
@@ -165,12 +165,17 @@ Optional but recommended for monorepo package managers (pnpm/npm/yarn stores,
 Turbo local cache, etc.):
 
 ```bash
-sudo mkdir -p /cache/ci/pnpm-store /cache/ci/turbo
-sudo chmod -R 777 /cache/ci
+sudo mkdir -p /cache/columbus/pnpm-store /cache/columbus/turbo /cache/columbus/bin
+sudo chmod -R 777 /cache/columbus
 ```
 
 Tighten ownership later if you pin a known runner UID. Path must match
-`[values.example.yaml](values.example.yaml)` (`hostPath` + `mountPath`).
+`[values.example.yaml](values.example.yaml)` (`hostPath` + `mountPath`) and the
+Columbus default `COLUMBUS_CACHE_ROOT` / `/cache/columbus`.
+
+**8GB host capacity:** `maxRunners: 4` is fine for queue depth, but keep
+concurrent Node monorepo installs ≈2 (Columbus PR `meta` ∥ `gates`). Example
+values set memory limits so four pods cannot allocate the whole machine.
 
 ---
 
@@ -279,7 +284,7 @@ image tag in the Dockerfile `FROM` line instead of `latest`.
 2. A workflow job uses `runs-on: ellexis-runners` (or whatever
   `runnerScaleSetName` you set).
 3. On a job: Node/pnpm/`gh`/`jq`/`scc` are available without a long tool download; if you
-  mounted `/cache/ci`, package-manager store paths should land there when your
+  mounted `/cache/columbus`, package-manager store paths should land there when your
    workflows configure them (e.g. pnpm 11: `PNPM_CONFIG_STORE_DIR`).
 
 ---
@@ -301,11 +306,45 @@ image tag in the Dockerfile `FROM` line instead of `latest`.
 ### Troubleshooting
 
 - **No idle runner pods** — expected with `minRunners: 0`; check the listener.
-- **Jobs stuck queued** — listener logs; App install + permissions;
-`githubConfigUrl` scope.
+- **Jobs stuck queued while pods show `Completed`** — ARC 0.14 can leave
+  `EphemeralRunner` CRs in `phase=Running` with finalizers after the pod
+  finishes. Those zombies still count toward `maxRunners`. Install the sweeper
+  once (see below); it force-deletes ERs whose pod is gone / Succeeded / Failed
+  for ≥2 minutes.
 - **pnpm store not on the mount** — pnpm 11 ignores `npm_config_`*; use
 `PNPM_CONFIG_STORE_DIR` (or equivalent) in the workflow.
 - **Lid closes → offline** — re-check logind drop-in and masked sleep targets.
+
+### Stuck EphemeralRunner sweeper (recommended)
+
+Install once on the builder (already applied on elx-kvy if you followed the
+Sep 2026 cutover). Runs every **2 minutes**; waits **120s** after a pod
+Succeeds/Fails so normal ARC cleanup can win first.
+
+```bash
+kubectl apply -f k8s/cleanup-stuck-ephemeralrunners.yaml
+
+kubectl get cronjob -n arc-runners cleanup-stuck-ephemeralrunners
+kubectl logs -n arc-runners -l app.kubernetes.io/name=cleanup-stuck-ephemeralrunners --tail=50
+```
+
+Optional host timer (same script, no extra image) if you prefer systemd:
+
+```bash
+sudo install -m 755 scripts/cleanup-stuck-ephemeralrunners.sh \
+  /usr/local/bin/cleanup-stuck-ephemeralrunners.sh
+sudo cp host/cleanup-stuck-ephemeralrunners.service \
+  host/cleanup-stuck-ephemeralrunners.timer /etc/systemd/system/
+sudo systemctl daemon-reload
+sudo systemctl enable --now cleanup-stuck-ephemeralrunners.timer
+```
+
+Manual one-shot:
+
+```bash
+bash scripts/cleanup-stuck-ephemeralrunners.sh
+# DRY_RUN=1 GRACE_SECONDS=60 bash scripts/cleanup-stuck-ephemeralrunners.sh
+```
 
 ---
 
@@ -321,7 +360,7 @@ jobs:
     runs-on: ellexis-runners
     steps:
       - uses: actions/checkout@v4
-      # Prefer tools already in the image; set package-manager store to /cache/ci/...
+      # Prefer tools already in the image; set package-manager store to /cache/columbus/...
 ```
 
 
@@ -329,10 +368,11 @@ jobs:
 ### Shared cache
 
 
-| Path (example)         | Role                                      |
-| ---------------------- | ----------------------------------------- |
-| `/cache/ci/pnpm-store` | Shared pnpm store across pods             |
-| `/cache/ci/turbo`      | Local Turbo (or similar) filesystem cache |
+| Path (example)               | Role                                      |
+| ---------------------------- | ----------------------------------------- |
+| `/cache/columbus/pnpm-store` | Shared pnpm store across pods             |
+| `/cache/columbus/turbo`      | Local Turbo (or similar) filesystem cache |
+| `/cache/columbus/bin`        | Cached tool binaries (gitleaks, osv, …)   |
 
 
 - Mount via scale-set `template.spec` (`hostPath` or PVC) — see
@@ -349,7 +389,7 @@ runner.
 
 If several jobs `pnpm install` at once against an empty shared store, serialize
 with `flock` on a lock file under the store directory (or warm the store with a
-single job first).
+single job first). After the store is warm, parallel linking is safe.
 
 ### Containers / DinD
 
@@ -360,7 +400,7 @@ resolve on the **host**, not inside the runner pod.
 ### Remote build caches
 
 Optional: wire your monorepo’s remote cache (Turbo, Nx, etc.) via repository
-secrets. A local `/cache/ci/...` dir can complement remote hits.
+secrets. A local `/cache/columbus/...` dir can complement remote hits.
 
 ---
 

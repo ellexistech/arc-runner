@@ -1,0 +1,11 @@
+[Unit]
+Description=Clean stuck ARC EphemeralRunners (Completed pods holding maxRunners slots)
+Documentation=file:///opt/ellexis-arc-runner/scripts/cleanup-stuck-ephemeralrunners.sh
+
+[Service]
+Type=oneshot
+Environment=NAMESPACE=arc-runners
+Environment=GRACE_SECONDS=120
+# k3s ships kubectl as a symlink; root kubeconfig is the cluster admin.
+Environment=KUBECONFIG=/etc/rancher/k3s/k3s.yaml
+ExecStart=/usr/local/bin/cleanup-stuck-ephemeralrunners.sh

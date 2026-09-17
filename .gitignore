@@ -8,6 +8,8 @@ Thumbs.db
 # Local scratch / session dumps — never publish
 raw/
 raw/**
+logs/
+logs/**
 
 # Secrets — never commit
 *.pem

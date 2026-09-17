@@ -1,12 +1,19 @@
 # Example Helm values for gha-runner-scale-set.
 # Copy to ~/arc-runners-values.yaml on the builder and edit placeholders.
+#
+# Capacity (8GB laptop guidance):
+# - maxRunners: 4 matches a small ARC pool, but keep concurrent *Node monorepo*
+#   jobs ≈2 (PR meta ∥ gates). Security is light (no pnpm). Raising past 4 or
+#   running many install-heavy jobs in parallel will swap/OOM.
+# - requests only (no limits): pods are Burstable and can use free host RAM;
+#   scheduler still packs on 1Gi/250m so four runners fit beside k3s.
 
 githubConfigUrl: "https://github.com/YOUR_ORG"
 
 githubConfigSecret: "github-app-secret"
 
 minRunners: 0
-maxRunners: 3
+maxRunners: 4
 
 runnerScaleSetName: "ellexis-runners"
 
@@ -17,6 +24,10 @@ template:
         image: ghcr.io/ellexistech/arc-runner:0.3.0
         command:
           - /home/runner/run.sh
+        resources: # optional
+          requests:
+            memory: 1Gi
+            cpu: 250m
         volumeMounts:
           - name: ci-cache
             mountPath: /cache/ci
