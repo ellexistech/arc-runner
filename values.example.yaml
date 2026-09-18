@@ -21,7 +21,7 @@ template:
   spec:
     containers:
       - name: runner
-        image: ghcr.io/ellexistech/arc-runner:0.3.0
+        image: ghcr.io/ellexistech/arc-runner:0.3.1
         command:
           - /home/runner/run.sh
         resources: # optional

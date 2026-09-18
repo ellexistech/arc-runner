@@ -13,7 +13,7 @@ environment.
 | Namespaces    | `arc-systems` (controller), `arc-runners` (scale set)                                        |
 | Helm releases | `arc`, `ellexis-runners`                                                                     |
 | Image         | `ghcr.io/ellexistech/arc-runner:<VERSION>` (see `[VERSION](VERSION)`; also tagged `:latest`) |
-| Shared cache  | host `/cache/columbus` → pod `/cache/columbus` (must match Columbus `setup-pnpm-node`) |
+| Shared cache  | host `/cache/columbus` → pod `/cache/columbus` (must match Columbus `setup-pnpm-node`)       |
 
 
 ```text
@@ -255,7 +255,9 @@ Bump `[VERSION](VERSION)` by hand, then build/push with
 Pin the scale set to the **version tag** (not only `:latest`) in values:
 
 ```yaml
-image: ghcr.io/ellexistech/arc-runner:0.3.0
+# nano ~/arc-runners-values.yaml
+
+image: ghcr.io/ellexistech/arc-runner:0.3.1
 ```
 
 ```bash
@@ -306,19 +308,20 @@ image tag in the Dockerfile `FROM` line instead of `latest`.
 ### Troubleshooting
 
 - **No idle runner pods** — expected with `minRunners: 0`; check the listener.
-- **Jobs stuck queued while pods show `Completed`** — ARC 0.14 can leave
-  `EphemeralRunner` CRs in `phase=Running` with finalizers after the pod
-  finishes. Those zombies still count toward `maxRunners`. Install the sweeper
-  once (see below); it force-deletes ERs whose pod is gone / Succeeded / Failed
-  for ≥2 minutes.
-- **pnpm store not on the mount** — pnpm 11 ignores `npm_config_`*; use
+- **Jobs stuck queued while pods show** `Completed` — ARC 0.14 can leave
+`EphemeralRunner` CRs in `phase=Running` with finalizers after the pod
+finishes. Those zombies still count toward `maxRunners`. Install the sweeper
+once (see below); it force-deletes ERs whose pod is gone / Succeeded / Failed
+for ≥2 minutes.
+- **pnpm store not on the mount** — pnpm 11 ignores `npm_config_`; use
 `PNPM_CONFIG_STORE_DIR` (or equivalent) in the workflow.
 - **Lid closes → offline** — re-check logind drop-in and masked sleep targets.
 
+
+
 ### Stuck EphemeralRunner sweeper (recommended)
 
-Install once on the builder (already applied on elx-kvy if you followed the
-Sep 2026 cutover). Runs every **2 minutes**; waits **120s** after a pod
+Install once on the builder. Runs every **2 minutes**; waits **120s** after a pod
 Succeeds/Fails so normal ARC cleanup can win first.
 
 ```bash

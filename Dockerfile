@@ -3,8 +3,8 @@ FROM ghcr.io/actions/actions-runner:latest
 USER root
 
 # Pin tools; bump when releasing a new image (see VERSION + build-push).
-ARG NODE_VERSION=24.11.0
-ARG PNPM_VERSION=11.23.0
+ARG NODE_VERSION=24.21.0
+ARG PNPM_VERSION=12.4.2
 ARG GH_VERSION=2.101.0
 ARG JQ_VERSION=1.8.2
 ARG SCC_VERSION=4.1.0

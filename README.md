@@ -13,14 +13,16 @@ every ephemeral pod.
 
 Manual semver in `[VERSION](VERSION)`. Each release pushes:
 
+
 | Tag                                     | Meaning                                     |
 | --------------------------------------- | ------------------------------------------- |
-| `ghcr.io/ellexistech/arc-runner:0.3.0`  | Immutable release (pin this in Helm values) |
+| `ghcr.io/ellexistech/arc-runner:0.3.1`  | Immutable release (pin this in Helm values) |
 | `ghcr.io/ellexistech/arc-runner:latest` | Same build, moving pointer                  |
+
 
 ### Release a new image
 
-1. Edit `VERSION` (e.g. `0.3.0` → `0.4.0`).
+1. Edit `VERSION` (e.g. `0.3.1` → `0.4.0`).
 2. Build and push both tags:
 
 ```bash
@@ -38,9 +40,9 @@ bash ./build-push.sh --no-push   # build only
 ```
 
 1. Commit `VERSION` (and Dockerfile changes) on `main`. Optionally tag the git
-   commit: `git tag v0.3.0; git push origin v0.3.0`.
+  commit: `git tag v0.3.1; git push origin v0.3.1`.
 2. Point the scale set at the new tag in `~/arc-runners-values.yaml` and
-   `helm upgrade` (see [SETUP.md](SETUP.md)).
+  `helm upgrade` (see [SETUP.md](SETUP.md)).
 
 Use a PAT or `gh auth token` with `write:packages`. Keep the GHCR package
 **public** so runner pods can pull without an imagePullSecret.
@@ -63,3 +65,4 @@ bash ./set-runner-max.sh 8          # max only
 bash ./set-runner-max.sh 8 1        # max 8, min 1
 MAX_RUNNERS_HOST=builder.example bash ./set-runner-max.sh 3
 ```
+
