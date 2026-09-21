@@ -396,9 +396,42 @@ single job first). After the store is warm, parallel linking is safe.
 
 ### Containers / DinD
 
-This reference builder uses **k3s containerd only** (no Docker socket). Prefer
-binary tools in workflows. If you mount `docker.sock`, remember bind mounts
-resolve on the **host**, not inside the runner pod.
+Default Columbus scale-set values enable **`containerMode.type: dind`** so pods
+get a privileged `docker:dind` sidecar and workflows can `docker build` /
+buildx (e.g. Release → Ellie images).
+
+On the builder, merge that into `~/arc-runners-values.yaml` (see
+[`values.example.yaml`](values.example.yaml)), then:
+
+```bash
+helm upgrade ellexis-runners \
+  --namespace arc-runners \
+  oci://ghcr.io/actions/actions-runner-controller-charts/gha-runner-scale-set \
+  --version 0.14.2 \
+  -f ~/arc-runners-values.yaml
+```
+
+(Release name is **`ellexis-runners`**, same as install — not `arc-runners`.)
+
+Smoke:
+
+```bash
+# After a job lands on ellexis-runners:
+docker info
+```
+
+Notes:
+
+- DinD needs **privileged** containers (allowed on this single-node k3s builder).
+- Budget more RAM per runner (~1.5–2 Gi); keep `maxRunners` modest on 8GB hosts.
+- Do **not** also mount the host `docker.sock` — DinD uses its own socket; host
+  bind mounts still resolve on the **node**, not inside the runner container.
+- To disable DinD (pnpm-only pool): remove `containerMode` from values and
+  `helm upgrade` again; keep image builds on `ubuntu-latest`.
+
+Without DinD this reference builder is **containerd only** — binary tools in
+workflows still work; Docker API calls fail with `no such file or directory`
+on `/var/run/docker.sock`.
 
 ### Remote build caches
 

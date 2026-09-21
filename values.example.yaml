@@ -2,20 +2,30 @@
 # Copy to ~/arc-runners-values.yaml on the builder and edit placeholders.
 #
 # Capacity (8GB laptop guidance):
-# - maxRunners: 4 matches a small ARC pool, but keep concurrent *Node monorepo*
-#   jobs ≈2 (PR meta ∥ gates). Security is light (no pnpm). Raising past 4 or
-#   running many install-heavy jobs in parallel will swap/OOM.
-# - requests only (no limits): pods are Burstable and can use free host RAM;
-#   scheduler still packs on 1Gi/250m so four runners fit beside k3s.
-
+# - With DinD, budget ~1.5–2 Gi per runner pod (runner + privileged dind).
+# - maxRunners: 2–3 on 8GB; raise only if the host has headroom.
+# - requests only (no limits): Burstable pods can use free host RAM.
+#
+# After editing: helm upgrade ellexis-runners \
+#   --namespace arc-runners \
+#   oci://ghcr.io/actions/actions-runner-controller-charts/gha-runner-scale-set \
+#   --version 0.14.2 \
+#   -f ~/arc-runners-values.yaml
+#
+# Release name must match install (ellexis-runners), not "arc-runners".
 githubConfigUrl: "https://github.com/YOUR_ORG"
 
 githubConfigSecret: "github-app-secret"
 
 minRunners: 0
-maxRunners: 4
+maxRunners: 3
 
 runnerScaleSetName: "ellexis-runners"
+
+# Injects a privileged docker:dind sidecar + DOCKER_HOST so workflows can
+# docker build / buildx (required for Columbus ellie-images). See SETUP.md.
+containerMode:
+  type: dind
 
 template:
   spec:
@@ -24,7 +34,7 @@ template:
         image: ghcr.io/ellexistech/arc-runner:0.3.1
         command:
           - /home/runner/run.sh
-        resources: # optional
+        resources:
           requests:
             memory: 1Gi
             cpu: 250m
