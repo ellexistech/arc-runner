@@ -268,7 +268,20 @@ The Helm release / `runnerScaleSetName` becomes the workflow `runs-on` label
 
 ## 10. Headless laptop (optional)
 
-If the builder is a laptop that must stay online with the lid closed:
+If the builder **or an agent** is a laptop that must stay online with the lid
+closed (and keep k3s/ARC ready across reboot), apply the host units once:
+
+```bash
+# Auto-detects Wi‑Fi iface; override with WIFI_IFACE=wlp0s12f0 if needed.
+sudo bash scripts/apply-headless-host.sh
+```
+
+That installs [`host/99-headless-ci.conf`](host/99-headless-ci.conf) (ignore lid /
+suspend keys), masks `sleep`/`suspend`/`hibernate`/`hybrid-sleep`, enables
+[`host/wifi-no-powersave.service`](host/wifi-no-powersave.service) for the local
+iface, and ensures `k3s` or `k3s-agent` is enabled on boot.
+
+Manual equivalent:
 
 ```bash
 sudo cp host/99-headless-ci.conf /etc/systemd/logind.conf.d/99-headless-ci.conf
