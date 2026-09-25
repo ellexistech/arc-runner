@@ -1,9 +1,11 @@
 # Example Helm values for gha-runner-scale-set.
 # Copy to ~/arc-runners-values.yaml on the builder and edit placeholders.
 #
-# Capacity (8GB laptop guidance):
+# Capacity:
 # - With DinD, budget ~1.5–2 Gi per runner pod (runner + privileged dind).
-# - maxRunners: 2–3 on 8GB; raise only if the host has headroom.
+# - Single 8GB node: maxRunners 2–4; raise only with headroom.
+# - Multi-node: maxRunners is cluster-wide. Cap a 4GB agent at one runner by
+#   reserving kube/system memory on join (see scripts/join-agent.sh / SETUP §2b).
 # - requests only (no limits): Burstable pods can use free host RAM.
 #
 # After editing: helm upgrade ellexis-runners \

@@ -69,6 +69,48 @@ chmod 600 ~/.kube/config
 kubectl get nodes
 ```
 
+### 2b. Extra agent (worker) nodes
+
+Join a second host as a **k3s agent** so runner pods can schedule there.
+Control-plane + ARC controller stay on the first node; agents only run workloads.
+
+**4GB RAM nodes:** reserve kube/system memory so allocatable ≈ 2Gi and only
+**one** DinD runner (≈1Gi request) fits. Use
+[`scripts/join-agent.sh`](scripts/join-agent.sh):
+
+```bash
+# On the control plane (needs sudo once):
+sudo cat /var/lib/rancher/k3s/server/node-token
+
+# On the new host (example: zee.elx / elx-zee):
+export K3S_URL="https://192.168.1.9:6443"   # control-plane LAN IP
+export K3S_TOKEN="…"                         # from node-token above
+# optional: NODE_NAME=elx-zee KUBE_RESERVED_MEM=1Gi SYSTEM_RESERVED_MEM=512Mi
+sudo -E bash scripts/join-agent.sh
+```
+
+From a workstation (after copying the script):
+
+```bash
+scp scripts/join-agent.sh zee.elx:~/
+ssh -t zee.elx "sudo K3S_URL=https://192.168.1.9:6443 K3S_TOKEN='…' bash ~/join-agent.sh"
+```
+
+Then on the control plane:
+
+```bash
+kubectl get nodes -o wide
+kubectl label node elx-zee arc.ellexis.io/capacity=small --overwrite
+kubectl describe node elx-zee | grep -A8 Allocatable
+```
+
+Raise `maxRunners` if you want the extra capacity in the shared pool
+(e.g. `bash ./set-runner-max.sh 4`). Scheduling still cannot place two runners on
+the small node when allocatable < 2× request.
+
+Each agent needs its own hostPath cache dir (`/cache/columbus`); stores are
+**not** shared across nodes unless you add RWX storage.
+
 ---
 
 
