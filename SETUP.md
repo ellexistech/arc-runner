@@ -363,6 +363,15 @@ image tag in the Dockerfile `FROM` line instead of `latest`.
 ### Troubleshooting
 
 - **No idle runner pods** — expected with `minRunners: 0`; check the listener.
+- **Org runners show Offline / listener restart loop** — usually the **control
+  plane host lost its default route** after Wi‑Fi carrier loss (lid / AP roam).
+  Check: `ip route` (no `default via …`), listener logs
+  `network is unreachable` / `dial tcp …:443`. Fix live with
+  `sudo ip route replace default via 192.168.1.1 dev <wifi> onlink`, then
+  install the watchdog once:
+  `sudo IFACE=wlp0s20f3 bash scripts/apply-default-route-guard.sh`
+  (see [`host/ensure-default-route.*`](host/)). That timer/path unit re-adds an
+  **on-link** default route + DNS within ~30s whenever the gateway is missing.
 - **Jobs stuck queued while pods show** `Completed` — ARC 0.14 can leave
 `EphemeralRunner` CRs in `phase=Running` with finalizers after the pod
 finishes. Those zombies still count toward `maxRunners`. Install the sweeper
@@ -370,7 +379,8 @@ once (see below); it force-deletes ERs whose pod is gone / Succeeded / Failed
 for ≥2 minutes.
 - **pnpm store not on the mount** — pnpm 11 ignores `npm_config_`; use
 `PNPM_CONFIG_STORE_DIR` (or equivalent) in the workflow.
-- **Lid closes → offline** — re-check logind drop-in and masked sleep targets.
+- **Lid closes → offline** — re-check logind drop-in and masked sleep targets;
+  also confirm the default-route guard is enabled (above).
 
 
 

@@ -1,0 +1,14 @@
+[Unit]
+Description=Re-run default-route ensure when Wi-Fi carrier changes
+DefaultDependencies=no
+
+[Path]
+PathChanged=/sys/class/net/wlp0s20f3/carrier
+Unit=ensure-default-route.service
+MakeDirectory=false
+# Carrier can chatter; don't stampede the oneshot.
+TriggerLimitIntervalSec=10s
+TriggerLimitBurst=2
+
+[Install]
+WantedBy=multi-user.target

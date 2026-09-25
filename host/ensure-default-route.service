@@ -1,0 +1,11 @@
+[Unit]
+Description=Ensure default IPv4 route after Wi-Fi carrier recovery
+After=network-online.target systemd-networkd.service
+Wants=network-online.target
+# Path unit + timer can fire close together after carrier flaps.
+StartLimitIntervalSec=0
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/ensure-default-route.sh
+RemainAfterExit=no

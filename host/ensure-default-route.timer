@@ -1,0 +1,13 @@
+[Unit]
+Description=Periodically ensure default route (ARC GitHub reachability)
+Requires=ensure-default-route.service
+
+[Timer]
+OnBootSec=30s
+OnUnitActiveSec=30s
+AccuracySec=5s
+Persistent=true
+Unit=ensure-default-route.service
+
+[Install]
+WantedBy=timers.target
