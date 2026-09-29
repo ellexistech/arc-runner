@@ -6,7 +6,6 @@ runner image**. Aimed at a small office/VPS builder; adapt hostnames and paths.
 Replace placeholders (`YOUR_ORG`, SSH host, Wi‑Fi iface, cache path) for your
 environment.
 
-
 | Piece         | Example in this repo                                                                         |
 | ------------- | -------------------------------------------------------------------------------------------- |
 | Charts        | `gha-runner-scale-set-controller` / `gha-runner-scale-set` **0.14.2**                        |
@@ -14,7 +13,6 @@ environment.
 | Helm releases | `arc`, `ellexis-runners`                                                                     |
 | Image         | `ghcr.io/ellexistech/arc-runner:<VERSION>` (see `[VERSION](VERSION)`; also tagged `:latest`) |
 | Shared cache  | host `/cache/columbus` → pod `/cache/columbus` (must match Columbus `setup-pnpm-node`)       |
-
 
 ```text
 Workstation
@@ -31,8 +29,6 @@ k3s node ── arc-systems (controller)
 
 ---
 
-
-
 ## 1. Host prep
 
 ```bash
@@ -48,8 +44,6 @@ required** on the builder — k3s ships containerd. Build the runner image on a
 machine that has Docker (e.g. a laptop), then push to GHCR.
 
 ---
-
-
 
 ## 2. Install k3s
 
@@ -113,8 +107,6 @@ Each agent needs its own hostPath cache dir (`/cache/columbus`); stores are
 
 ---
 
-
-
 ## 3. Install Helm 3
 
 ```bash
@@ -124,8 +116,6 @@ helm version
 
 ---
 
-
-
 ## 4. Namespaces
 
 ```bash
@@ -134,8 +124,6 @@ kubectl create namespace arc-runners
 ```
 
 ---
-
-
 
 ## 5. ARC controller (pin 0.14.2)
 
@@ -150,8 +138,6 @@ kubectl get pods -n arc-systems
 
 ---
 
-
-
 ## 6. GitHub App
 
 Create an **organization-owned** GitHub App (or user-owned if you only need
@@ -159,7 +145,7 @@ repo scope).
 
 - Homepage URL: `https://github.com/actions/actions-runner-controller`
 - Repository permissions: **Metadata: Read-only**
-(**Administration: Read and write** only if registering at **repository** scope)
+  (**Administration: Read and write** only if registering at **repository** scope)
 - Organization permissions (org-level runners): **Self-hosted runners: Read and write**
 
 Install the app on the target org (or repo). Record App ID, Installation ID,
@@ -176,8 +162,6 @@ sudo chown root:root /etc/github-arc/github-app-private-key.pem
 ```
 
 ---
-
-
 
 ## 7. Kubernetes secret
 
@@ -199,8 +183,6 @@ Key names must be exactly: `github_app_id`, `github_app_installation_id`,
 
 ---
 
-
-
 ## 8. Shared CI cache directory
 
 Optional but recommended for monorepo package managers (pnpm/npm/yarn stores,
@@ -220,8 +202,6 @@ concurrent Node monorepo installs ≈2 (Columbus PR `meta` ∥ `gates`). Example
 values set memory limits so four pods cannot allocate the whole machine.
 
 ---
-
-
 
 ## 9. Runner scale set
 
@@ -264,8 +244,6 @@ The Helm release / `runnerScaleSetName` becomes the workflow `runs-on` label
 
 ---
 
-
-
 ## 10. Headless laptop (optional)
 
 If the builder **or an agent** is a laptop that must stay online with the lid
@@ -299,8 +277,6 @@ Keep the machine plugged in.
 
 ---
 
-
-
 ## 11. Custom runner image
 
 Bump `[VERSION](VERSION)` by hand, then build/push with
@@ -333,32 +309,24 @@ image tag in the Dockerfile `FROM` line instead of `latest`.
 
 ---
 
-
-
 ## 12. Verify
 
 1. Org/repo → **Settings → Actions → Runners** lists the scale set name.
 2. A workflow job uses `runs-on: ellexis-runners` (or whatever
-  `runnerScaleSetName` you set).
+   `runnerScaleSetName` you set).
 3. On a job: Node/pnpm/`gh`/`jq`/`scc` are available without a long tool download; if you
-  mounted `/cache/columbus`, package-manager store paths should land there when your
+   mounted `/cache/columbus`, package-manager store paths should land there when your
    workflows configure them (e.g. pnpm 11: `PNPM_CONFIG_STORE_DIR`).
 
 ---
 
-
-
 ## 13. Day-2 ops
-
 
 | Task               | How                                                                                                                            |
 | ------------------ | ------------------------------------------------------------------------------------------------------------------------------ |
 | Change max runners | `[set-runner-max.sh](set-runner-max.sh)` — from a laptop SSHs to the builder (`MAX_RUNNERS_HOST`), edits values, helm upgrade. |
 | Bump image         | Edit `VERSION`, `bash ./build-push.sh`, pin new tag in values, helm upgrade / delete runner pods.                              |
 | Chart bump         | Change `--version` deliberately; read ARC release notes.                                                                       |
-
-
-
 
 ### Troubleshooting
 
@@ -373,16 +341,14 @@ image tag in the Dockerfile `FROM` line instead of `latest`.
   (see [`host/ensure-default-route.*`](host/)). That timer/path unit re-adds an
   **on-link** default route + DNS within ~30s whenever the gateway is missing.
 - **Jobs stuck queued while pods show** `Completed` — ARC 0.14 can leave
-`EphemeralRunner` CRs in `phase=Running` with finalizers after the pod
-finishes. Those zombies still count toward `maxRunners`. Install the sweeper
-once (see below); it force-deletes ERs whose pod is gone / Succeeded / Failed
-for ≥2 minutes.
+  `EphemeralRunner` CRs in `phase=Running` with finalizers after the pod
+  finishes. Those zombies still count toward `maxRunners`. Install the sweeper
+  once (see below); it force-deletes ERs whose pod is gone / Succeeded / Failed
+  for ≥2 minutes.
 - **pnpm store not on the mount** — pnpm 11 ignores `npm_config_`; use
-`PNPM_CONFIG_STORE_DIR` (or equivalent) in the workflow.
+  `PNPM_CONFIG_STORE_DIR` (or equivalent) in the workflow.
 - **Lid closes → offline** — re-check logind drop-in and masked sleep targets;
   also confirm the default-route guard is enabled (above).
-
-
 
 ### Stuck EphemeralRunner sweeper (recommended)
 
@@ -416,8 +382,6 @@ bash scripts/cleanup-stuck-ephemeralrunners.sh
 
 ---
 
-
-
 ## 14. Tips for any consuming repository
 
 Workflows should target your scale set name:
@@ -431,10 +395,7 @@ jobs:
       # Prefer tools already in the image; set package-manager store to /cache/columbus/...
 ```
 
-
-
 ### Shared cache
-
 
 | Path (example)               | Role                                      |
 | ---------------------------- | ----------------------------------------- |
@@ -442,16 +403,13 @@ jobs:
 | `/cache/columbus/turbo`      | Local Turbo (or similar) filesystem cache |
 | `/cache/columbus/bin`        | Cached tool binaries (gitleaks, osv, …)   |
 
-
 - Mount via scale-set `template.spec` (`hostPath` or PVC) — see
-`[values.example.yaml](values.example.yaml)`.
+  `[values.example.yaml](values.example.yaml)`.
 - On multi-node clusters use a **ReadWriteMany** volume so every node sees the
-same store. Keep Actions `_work` on fast local disk.
+  same store. Keep Actions `_work` on fast local disk.
 - Avoid `actions/cache` for huge package stores if post-job uploads stall the
-runner.
+  runner.
 - Do **not** share `node_modules` across pods.
-
-
 
 ### Parallel cold installs
 
@@ -505,12 +463,9 @@ secrets. A local `/cache/columbus/...` dir can complement remote hits.
 
 ---
 
-
-
 ## Related
 
 - Image: [README.md](README.md) · [Dockerfile](Dockerfile)
 - Values: [values.example.yaml](values.example.yaml)
 - Host units: [host/](host/)
 - Scale script: [set-runner-max.sh](set-runner-max.sh)
-
