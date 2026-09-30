@@ -226,6 +226,10 @@ scp scripts/join-agent.sh `
 
 scp host/99-headless-ci.conf `
   host/wifi-no-powersave.service `
+  host/lid-backlight.sh `
+  host/lid-backlight.service `
+  host/lid-backlight.timer `
+  host/lid-backlight.path `
   host/ensure-default-route.sh `
   host/ensure-default-route.service `
   host/ensure-default-route.timer `
@@ -310,6 +314,8 @@ Omit `WIFI_IFACE` to auto-detect (`iw dev`). Confirms:
 - logind ignores lid / suspend keys
 - `sleep` / `suspend` / `hibernate` / `hybrid-sleep` **masked**
 - `wifi-no-powersave.service` enabled
+- `lid-backlight.timer` (+ `.path` when ACPI lid exists) — lid close blanks
+  the panel backlight; machine stays awake
 - `k3s-agent` enabled on boot
 
 ### 8.2 Default-route watchdog (strongly recommended on Wi‑Fi)

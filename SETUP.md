@@ -263,7 +263,9 @@ sudo bash scripts/apply-headless-host.sh
 That installs [`host/99-headless-ci.conf`](host/99-headless-ci.conf) (ignore lid /
 suspend keys), masks `sleep`/`suspend`/`hibernate`/`hybrid-sleep`, enables
 [`host/wifi-no-powersave.service`](host/wifi-no-powersave.service) for the local
-iface, and ensures `k3s` or `k3s-agent` is enabled on boot.
+iface, installs [`host/lid-backlight.sh`](host/lid-backlight.sh) (+ path/timer) so
+**lid close blanks the panel** without sleeping, and ensures `k3s` or
+`k3s-agent` is enabled on boot.
 
 Manual equivalent:
 

@@ -1,0 +1,14 @@
+[Unit]
+Description=Re-run lid-backlight when ACPI lid state changes
+DefaultDependencies=no
+
+[Path]
+# Placeholder LID0 — apply-headless-host.sh rewrites to the real lid path.
+PathModified=/proc/acpi/button/lid/LID0/state
+Unit=lid-backlight.service
+MakeDirectory=false
+TriggerLimitIntervalSec=2s
+TriggerLimitBurst=8
+
+[Install]
+WantedBy=multi-user.target

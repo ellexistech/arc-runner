@@ -1,0 +1,12 @@
+[Unit]
+Description=Periodically sync panel backlight to lid state
+
+[Timer]
+OnBootSec=15s
+OnUnitActiveSec=30s
+AccuracySec=5s
+Persistent=true
+Unit=lid-backlight.service
+
+[Install]
+WantedBy=timers.target

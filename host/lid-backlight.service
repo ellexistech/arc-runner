@@ -1,0 +1,10 @@
+[Unit]
+Description=Blank or restore panel backlight from laptop lid state
+DefaultDependencies=no
+After=multi-user.target
+# Path + timer can fire together.
+StartLimitIntervalSec=0
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/lid-backlight.sh
