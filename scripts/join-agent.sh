@@ -5,7 +5,7 @@
 # runner at a time: reserves kube/system memory so allocatable ≈ 2Gi.
 #
 # Usage (on the new host, with sudo):
-#   K3S_URL=https://192.168.1.9:6443 \
+#   K3S_URL=https://192.168.1.10:6443 \
 #   K3S_TOKEN='…' \
 #   bash scripts/join-agent.sh
 #

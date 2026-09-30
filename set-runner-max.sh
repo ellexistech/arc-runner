@@ -10,8 +10,8 @@
 #   bash ./set-runner-max.sh 8
 #
 # Env overrides:
-#   MAX_RUNNERS_HOST   SSH target when not on the builder (default: kvy.elx)
-#   BUILDER_HOSTNAME   short hostname that means "run locally" (default: elx-kvy)
+#   MAX_RUNNERS_HOST   SSH target when not on the builder (default: akk.elx)
+#   BUILDER_HOSTNAME   short hostname that means "run locally" (default: elx-akk)
 #   HELM_RELEASE       default ellexis-runners
 #   HELM_NAMESPACE     default arc-runners
 #   HELM_CHART         default gha-runner-scale-set OCI chart
@@ -19,8 +19,8 @@
 
 set -euo pipefail
 
-HOST="${MAX_RUNNERS_HOST:-kvy.elx}"
-BUILDER_HOSTNAME="${BUILDER_HOSTNAME:-elx-kvy}"
+HOST="${MAX_RUNNERS_HOST:-akk.elx}"
+BUILDER_HOSTNAME="${BUILDER_HOSTNAME:-elx-akk}"
 RELEASE="${HELM_RELEASE:-ellexis-runners}"
 NAMESPACE="${HELM_NAMESPACE:-arc-runners}"
 CHART="${HELM_CHART:-oci://ghcr.io/actions/actions-runner-controller-charts/gha-runner-scale-set}"

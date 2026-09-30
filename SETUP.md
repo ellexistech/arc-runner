@@ -68,6 +68,9 @@ kubectl get nodes
 **Full SOP** (fresh Ubuntu → static IP → optional Synology DNS → SSH → join →
 laptop hardening): **[ONBOARD-WORKER.md](ONBOARD-WORKER.md)**.
 
+**Move the control plane** to another host (keep agents, restore SQLite):
+**[MIGRATE-CONTROL-PLANE.md](MIGRATE-CONTROL-PLANE.md)**.
+
 Join a second host as a **k3s agent** so runner pods can schedule there.
 Control-plane + ARC controller stay on the first node; agents only run workloads.
 
@@ -80,7 +83,7 @@ Control-plane + ARC controller stay on the first node; agents only run workloads
 sudo cat /var/lib/rancher/k3s/server/node-token
 
 # On the new host (example: zee.elx / elx-zee):
-export K3S_URL="https://192.168.1.9:6443"   # control-plane LAN IP
+export K3S_URL="https://192.168.1.10:6443"   # control-plane LAN IP
 export K3S_TOKEN="…"                         # from node-token above
 # optional: NODE_NAME=elx-zee KUBE_RESERVED_MEM=1Gi SYSTEM_RESERVED_MEM=512Mi
 sudo -E bash scripts/join-agent.sh
@@ -90,7 +93,7 @@ From a workstation (after copying the script):
 
 ```bash
 scp scripts/join-agent.sh zee.elx:~/
-ssh -t zee.elx "sudo K3S_URL=https://192.168.1.9:6443 K3S_TOKEN='…' bash ~/join-agent.sh"
+ssh -t zee.elx "sudo K3S_URL=https://192.168.1.10:6443 K3S_TOKEN='…' bash ~/join-agent.sh"
 ```
 
 Then on the control plane:

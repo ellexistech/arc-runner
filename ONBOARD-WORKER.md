@@ -3,13 +3,15 @@
 Complete procedure to take a **fresh Ubuntu Server** from bare metal/VM to a
 **k3s agent** in the Ellexis ARC builder cluster (`ellexis-runners`).
 
-The control plane stays on the existing builder (today: `kvy.elx` /
-`elx-kvy`). Workers only run ephemeral runner pods (+ CNI / Traefik svc-lb).
+The control plane stays on the existing builder (today: `akk.elx` /
+`elx-akk`). Workers only run ephemeral runner pods (+ CNI / Traefik svc-lb).
+To **move** the control plane later, see
+**[MIGRATE-CONTROL-PLANE.md](MIGRATE-CONTROL-PLANE.md)**.
 
 | Role            | Example host     | k3s role        | Notes                                      |
 | --------------- | ---------------- | --------------- | ------------------------------------------ |
-| Control plane   | `kvy.elx`        | `k3s` server    | ARC controller + listener live here        |
-| Worker (this)   | `zee.elx`, …     | `k3s-agent`     | Join only — do **not** install k3s server  |
+| Control plane   | `akk.elx`        | `k3s` server    | ARC controller + listener live here        |
+| Worker (this)   | `zee.elx`, `kvy.elx`, … | `k3s-agent` | Join only — do **not** install k3s server  |
 
 Related: [SETUP.md](SETUP.md) (full cluster bootstrap),
 [`scripts/join-agent.sh`](scripts/join-agent.sh),
@@ -28,7 +30,7 @@ Fill this in for the new machine:
 | SSH / DNS name    | `<name>.elx`, e.g. `zee.elx`                            |
 | Static LAN IP     | Free address on `192.168.1.0/24`, e.g. `192.168.1.7`    |
 | Gateway           | Usually `192.168.1.1`                                   |
-| Control-plane URL | `https://192.168.1.9:6443` (kvy LAN IP — prefer IP)     |
+| Control-plane URL | `https://192.168.1.10:6443` (akk LAN IP — prefer IP)    |
 | RAM class         | **4 Gi** → reserve for **1** DinD runner (defaults below) |
 |                   | **8 Gi+** → lower reservations or raise later           |
 | Laptop?           | If yes → headless lid + Wi‑Fi powersave + route guard   |
@@ -243,7 +245,7 @@ safety net.
 
 ### 7.1 Fetch the node token (control plane)
 
-On `kvy.elx` (needs sudo):
+On `akk.elx` (needs sudo):
 
 ```bash
 sudo cat /var/lib/rancher/k3s/server/node-token
@@ -255,7 +257,7 @@ Treat the token like a secret. Prefer the control-plane **LAN IP** in
 ### 7.2 Install agent on the worker
 
 ```powershell
-ssh -tt NEWHOST.elx "sudo K3S_URL=https://192.168.1.9:6443 K3S_TOKEN='PASTE_TOKEN' NODE_NAME=elx-NAME bash ~/arc-host-setup/scripts/join-agent.sh"
+ssh -tt NEWHOST.elx "sudo K3S_URL=https://192.168.1.10:6443 K3S_TOKEN='PASTE_TOKEN' NODE_NAME=elx-NAME bash ~/arc-host-setup/scripts/join-agent.sh"
 ```
 
 Optional env (defaults shown):
@@ -277,7 +279,7 @@ What the script does:
 ### 7.3 Confirm on the control plane
 
 ```bash
-ssh kvy.elx
+ssh akk.elx
 kubectl get nodes -o wide
 # NEW node should be Ready, ROLES empty (<none>), INTERNAL-IP = static IP
 
@@ -314,7 +316,7 @@ Omit `WIFI_IFACE` to auto-detect (`iw dev`). Confirms:
 
 After Wi‑Fi carrier loss, systemd-networkd sometimes fails to reinstall the
 default gateway → pods cannot reach `api.github.com` (jobs fail even if the
-scale set looks Online on kvy).
+scale set looks Online on akk).
 
 ```powershell
 ssh -tt NEWHOST.elx "sudo IFACE=wlpXsYfZ GATEWAY=192.168.1.1 bash ~/arc-host-setup/scripts/apply-default-route-guard.sh"
@@ -333,11 +335,11 @@ automatically raise it.
 ```bash
 # from workstation, against control plane:
 bash ./set-runner-max.sh 4
-# or: MAX_RUNNERS_HOST=kvy.elx bash ./set-runner-max.sh 5
+# or: MAX_RUNNERS_HOST=akk.elx bash ./set-runner-max.sh 5
 ```
 
 Scheduling still cannot place two 1 Gi runners on a 4 Gi agent when allocatable
-≈ 2 Gi — the extra slot is for **kvy** (or other large nodes).
+≈ 2 Gi — the extra slot is for **akk** (or other large nodes).
 
 ---
 
@@ -364,7 +366,7 @@ systemctl is-enabled ensure-default-route.timer wifi-no-powersave.service
 systemctl is-enabled sleep.target   # expect: masked
 ```
 
-End-to-end: trigger workflows with `runs-on: ellexis-runners`. When kvy is full,
+End-to-end: trigger workflows with `runs-on: ellexis-runners`. When akk is full,
 a runner pod should schedule on the new node (`kubectl get pods -n arc-runners -o wide`).
 
 Org → **Settings → Actions → Runners**: scale set stays Online as long as the
@@ -405,13 +407,13 @@ cd d:\dev\columbus\deploy\arc-runner
 # scp scripts + host units → NEWHOST:~/arc-host-setup/   (section 6)
 
 # 2) Token from CP:
-ssh -t kvy.elx "sudo cat /var/lib/rancher/k3s/server/node-token"
+ssh -t akk.elx "sudo cat /var/lib/rancher/k3s/server/node-token"
 
 # 3) Join:
-ssh -tt NEWHOST.elx "sudo K3S_URL=https://192.168.1.9:6443 K3S_TOKEN='…' NODE_NAME=elx-NAME bash ~/arc-host-setup/scripts/join-agent.sh"
+ssh -tt NEWHOST.elx "sudo K3S_URL=https://192.168.1.10:6443 K3S_TOKEN='…' NODE_NAME=elx-NAME bash ~/arc-host-setup/scripts/join-agent.sh"
 
 # 4) Label (on CP):
-ssh kvy.elx "kubectl label node elx-NAME arc.ellexis.io/capacity=small --overwrite"
+ssh akk.elx "kubectl label node elx-NAME arc.ellexis.io/capacity=small --overwrite"
 
 # 5) Laptop extras:
 ssh -tt NEWHOST.elx "sudo bash ~/arc-host-setup/scripts/apply-headless-host.sh"

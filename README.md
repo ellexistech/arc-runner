@@ -11,6 +11,8 @@ every ephemeral pod.
 
 **Onboard another worker node (Ubuntu → join agent):** [ONBOARD-WORKER.md](ONBOARD-WORKER.md)
 
+**Move / nominate the control plane (SQLite migrate):** [MIGRATE-CONTROL-PLANE.md](MIGRATE-CONTROL-PLANE.md)
+
 ## Versioning
 
 Manual semver in `[VERSION](VERSION)`. Each release pushes:
