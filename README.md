@@ -9,6 +9,8 @@ every ephemeral pod.
 
 **Bootstrap a single-node k3s builder + ARC scale set:** [SETUP.md](SETUP.md)
 
+**Onboard another worker node (Ubuntu → join agent):** [ONBOARD-WORKER.md](ONBOARD-WORKER.md)
+
 ## Versioning
 
 Manual semver in `[VERSION](VERSION)`. Each release pushes:

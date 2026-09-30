@@ -65,6 +65,9 @@ kubectl get nodes
 
 ### 2b. Extra agent (worker) nodes
 
+**Full SOP** (fresh Ubuntu → static IP → optional Synology DNS → SSH → join →
+laptop hardening): **[ONBOARD-WORKER.md](ONBOARD-WORKER.md)**.
+
 Join a second host as a **k3s agent** so runner pods can schedule there.
 Control-plane + ARC controller stay on the first node; agents only run workloads.
 
